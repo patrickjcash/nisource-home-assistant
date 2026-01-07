@@ -70,9 +70,9 @@ class NiSourceCoordinator(DataUpdateCoordinator):
     async def _insert_statistics(self, data: dict) -> None:
         """Insert long-term statistics for consumption and cost.
 
-        This method follows the Opower pattern for backfilling historical data
-        into Home Assistant's statistics database. The Energy Dashboard uses
-        these statistics, not the sensor values directly.
+        This method backfills historical data into Home Assistant's statistics
+        database. The Energy Dashboard uses these statistics, not the sensor
+        values directly.
         """
         # Get last inserted statistics to avoid duplicates
         try:

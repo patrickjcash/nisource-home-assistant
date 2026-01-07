@@ -134,7 +134,6 @@ def _get_due_date(data: dict[str, Any]) -> StateType:
 # NOTE: These sensors display current/latest values for informational purposes.
 # The Energy Dashboard uses STATISTICS (not sensors) for historical tracking.
 # Statistics are inserted by the coordinator via _insert_statistics().
-# This follows the Opower pattern for backfilling historical data.
 
 SENSORS: tuple[NiSourceSensorEntityDescription, ...] = (
     NiSourceSensorEntityDescription(
@@ -221,7 +220,7 @@ class NiSourceSensor(CoordinatorEntity, SensorEntity):
         # Get provider name from config
         provider_name = entry.data.get("provider_name", "NiSource Gas")
 
-        # Group sensors under a service device (like Opower does)
+        # Group sensors under a service device
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": provider_name,

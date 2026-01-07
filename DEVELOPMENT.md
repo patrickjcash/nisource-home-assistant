@@ -40,7 +40,7 @@ response = session.post(
 **CSV Structure**:
 ```csv
 Date,Type of Read,Avg Temp,Number of Days,Units Used, Yearly Usage, Bill Amount, Cost per Day
-12/10/2025,ACTUAL READING,38.10,33,188.00,20%,$232.00,$7.03
+01/15/2024,ACTUAL READING,42.5,30,150.00,5%,$185.50,$6.18
 ```
 
 **Fields**:
@@ -137,7 +137,7 @@ The integration creates the following sensors:
 
 ## Energy Dashboard Statistics
 
-Following the Opower pattern for statistics insertion:
+The integration uses Home Assistant's statistics system for Energy Dashboard integration:
 
 ### Gas Consumption Statistics
 - **Statistic ID**: `nisource:consumption`
@@ -331,7 +331,7 @@ python tests/test_integration_api.py
 
 ## Energy Dashboard Integration
 
-The integration follows the Opower bronze-certified pattern:
+The integration uses Home Assistant's long-term statistics system:
 - **Statistics** (not sensors) are used for Energy Dashboard
 - Historical data is automatically backfilled on first setup
 - Cumulative sums are calculated for proper dashboard display
@@ -352,4 +352,3 @@ When contributing to this integration:
 - [Home Assistant Integration Development](https://developers.home-assistant.io/)
 - [Recorder Statistics Documentation](https://developers.home-assistant.io/docs/core/entity/sensor/#long-term-statistics)
 - [Energy Dashboard Integration](https://www.home-assistant.io/docs/energy/)
-- [Opower Integration](https://github.com/home-assistant/core/tree/dev/homeassistant/components/opower) (reference implementation)

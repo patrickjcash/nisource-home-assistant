@@ -61,7 +61,7 @@ Nearly 4 million customers across six states can use this integration!
 
 ## Energy Dashboard Integration
 
-This integration uses **long-term statistics** (not sensors) for Energy Dashboard tracking, following the same pattern as the bronze-certified Opower integration. Historical data is automatically backfilled on first setup.
+This integration uses **long-term statistics** (not sensors) for Energy Dashboard tracking. Historical data is automatically backfilled on first setup.
 
 ### Gas Consumption Tracking
 
@@ -133,7 +133,7 @@ The integration follows Home Assistant best practices:
 - **Session-based authentication** with cookies
 - **CSV parsing** for usage and billing history
 - **JSON API** for account summary and balance information
-- **Statistics insertion** for Energy Dashboard compatibility (following Opower pattern)
+- **Statistics insertion** for Energy Dashboard compatibility
 - **DataUpdateCoordinator** for efficient data management
 
 ## Development
