@@ -136,6 +136,15 @@ The integration follows Home Assistant best practices:
 - **Statistics insertion** for Energy Dashboard compatibility (following Opower pattern)
 - **DataUpdateCoordinator** for efficient data management
 
+## Development
+
+For developers interested in contributing or understanding the integration architecture, see [DEVELOPMENT.md](DEVELOPMENT.md) for:
+- API endpoint documentation
+- Implementation details
+- Statistics insertion patterns
+- Testing guidelines
+- Common issues and solutions
+
 ## Credits
 
 Built for NiSource customers (Columbia Gas and NIPSCO) who want to track their natural gas usage in Home Assistant.
