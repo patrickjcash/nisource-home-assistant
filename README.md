@@ -19,7 +19,7 @@ Nearly 4 million customers across six states can use this integration!
 
 - **Historical gas consumption tracking** - View up to 18 months of historical usage data in the Energy Dashboard
 - **Cost tracking** - Monitor gas costs with historical billing data
-- **Account monitoring** - Track current bill, balance due, past due amount, and due date
+- **Account monitoring** - Track current bill, balance due, current amount due, and due date
 - **Energy Dashboard integration** - Seamless integration with Home Assistant's native Energy Dashboard
 - **Automatic statistics insertion** - Historical data is automatically backfilled on first setup
 - **Automatic updates** - Data refreshes every 24 hours
@@ -84,9 +84,9 @@ This integration uses **long-term statistics** (not sensors) for Energy Dashboar
 The integration creates the following sensors:
 
 1. **Gas Usage** - Latest billing period's gas consumption in CCF (hundred cubic feet)
-2. **Total Bill this Period** - Latest bill amount in USD
+2. **Total Bill Last Period** - Previous billing cycle amount in USD (billed in arrears)
 3. **Balance Due** - Current account balance in USD
-4. **Past Due Amount** - Past due amount in USD (if applicable)
+4. **Current Amount Due** - Amount currently due in USD
 5. **Due Date** - Next payment due date
 
 ## Data Units
@@ -113,11 +113,12 @@ The integration creates the following sensors:
    pip install requests python-dotenv beautifulsoup4
    ```
 
-3. Run tests:
+3. Run the diagnostic test:
    ```bash
-   python tests/test_auth.py
-   python tests/test_api.py
+   python tests/test_api_standalone.py
    ```
+
+   This comprehensive test validates authentication, CSV parsing, statistics calculation, and sensor values.
 
 ### API Details
 
