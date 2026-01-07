@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "NiSource Gas Login",
+        "description": "Enter your NiSource gas portal credentials",
+        "data": {
+          "provider": "Gas Provider",
+          "username": "Email Address",
+          "password": "Password"
+        },
+        "data_description": {
+          "provider": "Select your gas utility company",
+          "username": "The email address you use to login to your account",
+          "password": "Your account password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to NiSource portal",
+      "invalid_auth": "Invalid email or password",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This account is already configured"
+    }
+  }
+}
