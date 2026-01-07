@@ -45,3 +45,7 @@ Thumbs.db
 .coverage
 htmlcov/
 *.log
+
+# Internal documentation (contains sensitive info)
+INTEGRATION_COMPLETE.md
+INVESTIGATION_SUMMARY.md
