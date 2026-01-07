@@ -258,3 +258,31 @@ class NiSourceAPI:
             datetime object
         """
         return datetime.strptime(date_str, "%m/%d/%Y")
+
+    @staticmethod
+    def get_csv_value(row: dict[str, str], field_name: str) -> str | None:
+        """Get value from CSV row, handling column names with or without leading spaces.
+
+        NiSource's CSV format has inconsistent column naming - some columns have
+        leading spaces (e.g., ' Bill Amount' instead of 'Bill Amount'). This method
+        tries both variants to ensure compatibility if they fix their CSV format.
+
+        Args:
+            row: Dictionary representing a CSV row
+            field_name: The field name to retrieve (without leading space)
+
+        Returns:
+            The field value, or None if not found
+        """
+        # Try exact match first
+        value = row.get(field_name)
+        if value is not None:
+            return value
+
+        # Try with leading space
+        value = row.get(f" {field_name}")
+        if value is not None:
+            return value
+
+        # Not found
+        return None

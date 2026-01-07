@@ -87,7 +87,7 @@ COST_METADATA = StatisticMetaData(
 SENSOR_GAS_USAGE = "gas_usage"
 SENSOR_BILL_AMOUNT = "bill_amount"
 SENSOR_BALANCE_DUE = "balance_due"
-SENSOR_PAST_DUE = "past_due_amount"
+SENSOR_CURRENT_AMOUNT_DUE = "current_amount_due"
 SENSOR_DUE_DATE = "due_date"
 
 # Config flow

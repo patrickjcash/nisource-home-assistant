@@ -209,7 +209,7 @@ class NiSourceCoordinator(DataUpdateCoordinator):
 
         for row in reversed(usage_csv):
             date_str = row.get("Date")
-            bill_amount_str = row.get("Bill Amount")
+            bill_amount_str = self.api.get_csv_value(row, "Bill Amount")
 
             if not date_str or not bill_amount_str:
                 continue

@@ -43,15 +43,27 @@ Date,Type of Read,Avg Temp,Number of Days,Units Used, Yearly Usage, Bill Amount,
 01/15/2024,ACTUAL READING,42.5,30,150.00,5%,$185.50,$6.18
 ```
 
+**IMPORTANT**: Several column names have **leading spaces** in the actual CSV:
+- `' Yearly Usage'` (with leading space)
+- `' Bill Amount'` (with leading space)
+- `' Cost per Day'` (with leading space)
+
+**Best Practice**: Use the `get_csv_value()` helper method to access these fields:
+```python
+bill_amount = api.get_csv_value(row, "Bill Amount")  # Handles both "Bill Amount" and " Bill Amount"
+```
+
+This helper tries both the correct name and the variant with a leading space, making the code resilient to CSV format changes.
+
 **Fields**:
 - `Date`: MM/DD/YYYY format
 - `Type of Read`: ACTUAL READING or CALC BY DATA CENTER
 - `Avg Temp`: Average temperature in °F
 - `Number of Days`: Billing period length
 - `Units Used`: CCF (hundred cubic feet)
-- `Yearly Usage`: Percentage change (e.g., "20%")
-- `Bill Amount`: Dollar amount (e.g., "$232.00")
-- `Cost per Day`: Dollar amount (e.g., "$7.03")
+- ` Yearly Usage`: Percentage change with leading space (e.g., "20%")
+- ` Bill Amount`: Dollar amount with leading space (e.g., "$232.00")
+- ` Cost per Day`: Dollar amount with leading space (e.g., "$7.03")
 
 ### 2. Billing History (CSV)
 - **Endpoint**: `/BillingHistoryAllCsv`

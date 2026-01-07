@@ -20,6 +20,34 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, UNIT_CCF
 
 
+def _get_csv_value(row: dict[str, Any], field_name: str) -> Any:
+    """Get value from CSV row, handling column names with or without leading spaces.
+
+    NiSource's CSV format has inconsistent column naming - some columns have
+    leading spaces (e.g., ' Bill Amount' instead of 'Bill Amount'). This helper
+    tries both variants to ensure compatibility if they fix their CSV format.
+
+    Args:
+        row: Dictionary representing a CSV row
+        field_name: The field name to retrieve (without leading space)
+
+    Returns:
+        The field value, or None if not found
+    """
+    # Try exact match first
+    value = row.get(field_name)
+    if value is not None:
+        return value
+
+    # Try with leading space
+    value = row.get(f" {field_name}")
+    if value is not None:
+        return value
+
+    # Not found
+    return None
+
+
 @dataclass(frozen=True)
 class NiSourceSensorEntityDescription(SensorEntityDescription):
     """Describes NiSource sensor entity."""
@@ -58,7 +86,7 @@ def _get_latest_bill_amount(data: dict[str, Any]) -> StateType:
     # Get the latest bill amount from usage CSV
     # CSV is ordered newest-to-oldest, so [0] is the most recent
     latest = usage_csv[0]
-    bill_amount = latest.get("Bill Amount")
+    bill_amount = _get_csv_value(latest, "Bill Amount")
 
     if not bill_amount or bill_amount.strip() in ("", "$0.00", "$"):
         return None
@@ -92,8 +120,8 @@ def _get_balance_due(data: dict[str, Any]) -> StateType:
         return None
 
 
-def _get_past_due_amount(data: dict[str, Any]) -> StateType:
-    """Extract past due amount from account summary."""
+def _get_current_amount_due(data: dict[str, Any]) -> StateType:
+    """Extract current amount due from account summary."""
     account = data.get("account", {})
     linked_accounts = account.get("linkedAccounts", [])
 
@@ -103,20 +131,25 @@ def _get_past_due_amount(data: dict[str, Any]) -> StateType:
     # Get first account
     account_info = linked_accounts[0]
     balance_info = account_info.get("customerAccountBalance", {})
-    past_due = balance_info.get("pastDueAmount")
+    current_due = balance_info.get("currentAmountDue")
 
-    if past_due is None:
+    if current_due is None:
         return None
 
     try:
-        # Return absolute value (API may return negative)
-        return abs(float(past_due))
+        return float(current_due)
     except (ValueError, TypeError):
         return None
 
 
 def _get_due_date(data: dict[str, Any]) -> StateType:
-    """Extract due date from account summary."""
+    """Extract due date from account summary.
+
+    Returns the due date as a date object (not string).
+    Home Assistant DATE sensors expect date/datetime objects.
+    """
+    from datetime import date as date_type
+
     account = data.get("account", {})
     linked_accounts = account.get("linkedAccounts", [])
 
@@ -126,9 +159,18 @@ def _get_due_date(data: dict[str, Any]) -> StateType:
     # Get first account
     account_info = linked_accounts[0]
     balance_info = account_info.get("customerAccountBalance", {})
-    due_date = balance_info.get("dueDate")
+    due_date_str = balance_info.get("dueDate")
 
-    return due_date  # Return as string in YYYY-MM-DD format
+    # Only process if we have a valid date string
+    if not due_date_str or due_date_str == "" or due_date_str == "null":
+        return None
+
+    try:
+        # Parse YYYY-MM-DD format and return as date object
+        year, month, day = due_date_str.split("-")
+        return date_type(int(year), int(month), int(day))
+    except (ValueError, AttributeError, TypeError):
+        return None
 
 
 # NOTE: These sensors display current/latest values for informational purposes.
@@ -149,13 +191,13 @@ SENSORS: tuple[NiSourceSensorEntityDescription, ...] = (
     ),
     NiSourceSensorEntityDescription(
         key="bill_amount",
-        name="Total Bill this Period",
+        name="Total Bill Last Period",
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
         native_unit_of_measurement="USD",
         suggested_display_precision=2,
         value_fn=_get_latest_bill_amount,
-        # This sensor shows the latest bill amount
+        # This sensor shows the latest bill amount (billed in arrears)
         # Energy Dashboard uses statistic: nisource:cost
     ),
     NiSourceSensorEntityDescription(
@@ -168,13 +210,13 @@ SENSORS: tuple[NiSourceSensorEntityDescription, ...] = (
         value_fn=_get_balance_due,
     ),
     NiSourceSensorEntityDescription(
-        key="past_due_amount",
-        name="Past Due Amount",
+        key="current_amount_due",
+        name="Current Amount Due",
         device_class=SensorDeviceClass.MONETARY,
         state_class=None,
         native_unit_of_measurement="USD",
         suggested_display_precision=2,
-        value_fn=_get_past_due_amount,
+        value_fn=_get_current_amount_due,
     ),
     NiSourceSensorEntityDescription(
         key="due_date",
