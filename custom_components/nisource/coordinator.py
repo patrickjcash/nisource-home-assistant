@@ -110,10 +110,11 @@ class NiSourceCoordinator(DataUpdateCoordinator):
 
         # Build consumption statistics with cumulative sum
         # CSV format: Date, Type of Read, Avg Temp, Number of Days, Units Used, Yearly Usage, Bill Amount, Cost per Day
+        # IMPORTANT: CSV is ordered newest-to-oldest, so reverse it for chronological order
         consumption_statistics = []
         consumption_sum = 0.0
 
-        for row in usage_csv:
+        for row in reversed(usage_csv):
             date_str = row.get("Date")
             units_used_str = row.get("Units Used")
 
@@ -202,10 +203,11 @@ class NiSourceCoordinator(DataUpdateCoordinator):
             return
 
         # Build cost statistics with cumulative sum
+        # IMPORTANT: CSV is ordered newest-to-oldest, so reverse it for chronological order
         cost_statistics = []
         cost_sum = 0.0
 
-        for row in usage_csv:
+        for row in reversed(usage_csv):
             date_str = row.get("Date")
             bill_amount_str = row.get("Bill Amount")
 

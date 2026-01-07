@@ -35,7 +35,8 @@ def _get_latest_gas_usage(data: dict[str, Any]) -> StateType:
         return None
 
     # Get the latest (most recent) usage record
-    latest = usage_csv[-1]
+    # CSV is ordered newest-to-oldest, so [0] is the most recent
+    latest = usage_csv[0]
     units_used = latest.get("Units Used")
 
     if units_used is None:
@@ -55,10 +56,11 @@ def _get_latest_bill_amount(data: dict[str, Any]) -> StateType:
         return None
 
     # Get the latest bill amount from usage CSV
-    latest = usage_csv[-1]
+    # CSV is ordered newest-to-oldest, so [0] is the most recent
+    latest = usage_csv[0]
     bill_amount = latest.get("Bill Amount")
 
-    if bill_amount is None:
+    if not bill_amount or bill_amount.strip() in ("", "$0.00", "$"):
         return None
 
     try:
