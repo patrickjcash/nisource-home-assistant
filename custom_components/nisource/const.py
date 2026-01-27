@@ -15,22 +15,22 @@ PROVIDERS = {
     },
     "KY": {
         "name": "Columbia Gas of Kentucky",
-        "base_url": "https://myaccount.columbiagasofky.com",
+        "base_url": "https://myaccount.columbiagasky.com",
         "state_code": "KY",
     },
     "PA": {
         "name": "Columbia Gas of Pennsylvania",
-        "base_url": "https://myaccount.columbiagasofpa.com",
+        "base_url": "https://myaccount.columbiagaspa.com",
         "state_code": "PA",
     },
     "MD": {
         "name": "Columbia Gas of Maryland",
-        "base_url": "https://myaccount.columbiagasofmd.com",
+        "base_url": "https://myaccount.columbiagasmd.com",
         "state_code": "MD",
     },
     "VA": {
         "name": "Columbia Gas of Virginia",
-        "base_url": "https://myaccount.columbiagasofva.com",
+        "base_url": "https://myaccount.columbiagasva.com",
         "state_code": "VA",
     },
     "IN": {
