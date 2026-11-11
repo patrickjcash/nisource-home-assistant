@@ -10,7 +10,7 @@ from homeassistant.components.recorder.statistics import (
     StatisticData,
     StatisticMetaData,
     async_add_external_statistics,
-    get_last_statistics,
+    statistics_during_period,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -25,6 +25,9 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Earliest date to search for stored statistics when anchoring the running sum
+HISTORY_START = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 
 class NiSourceCoordinator(DataUpdateCoordinator):
@@ -104,52 +107,67 @@ class NiSourceCoordinator(DataUpdateCoordinator):
         statistic_id: str,
         metadata: StatisticMetaData,
     ) -> None:
-        """Import bill-period rows newer than the last stored statistic.
+        """Import every bill-period row in the CSV, anchored to stored history.
 
-        The running sum continues from the last stored sum rather than being
-        re-totalled from the CSV, which only covers a rolling window of bills.
+        NiSource's CSV is a rolling window of bills. Every refresh rewrites all
+        rows in the window, with the running sum anchored to the stored statistic
+        at (or just before) the oldest row. This keeps sums continuous as old rows
+        fall out of the window, and repairs sums written by earlier versions.
         """
-        try:
-            last_stats = await get_instance(self.hass).async_add_executor_job(
-                get_last_statistics, self.hass, 1, statistic_id, True, {"sum"}
-            )
-        except Exception as err:
-            _LOGGER.warning("Failed to get last statistics for %s: %s", statistic_id, err)
-            return
-
-        last_time = None
-        running_sum = 0.0
-        if stats_list := last_stats.get(statistic_id):
-            last_time = datetime.fromtimestamp(stats_list[0]["start"], tz=timezone.utc)
-            running_sum = stats_list[0].get("sum") or 0.0
-
         # CSV is ordered newest-to-oldest, so reverse it for chronological order
-        statistics = []
+        rows: list[tuple[datetime, float]] = []
         for row in reversed(usage_csv):
             date_str = row.get("Date")
             value_str = self.api.get_csv_value(row, column)
             if not date_str or not value_str:
                 continue
-
             try:
-                period_start = self.api.parse_date(date_str).replace(tzinfo=timezone.utc)
-                if last_time and period_start <= last_time:
-                    continue
-                value = parse(value_str)
+                rows.append(
+                    (
+                        self.api.parse_date(date_str).replace(tzinfo=timezone.utc),
+                        parse(value_str),
+                    )
+                )
             except (ValueError, TypeError) as err:
                 _LOGGER.warning("Failed to parse %s from row %s: %s", column, row, err)
-                continue
 
+        if not rows:
+            return
+
+        oldest = rows[0][0]
+        try:
+            stored = await get_instance(self.hass).async_add_executor_job(
+                statistics_during_period,
+                self.hass,
+                HISTORY_START,
+                oldest + timedelta(hours=1),
+                {statistic_id},
+                "hour",
+                None,
+                {"state", "sum"},
+            )
+        except Exception as err:
+            _LOGGER.warning("Failed to read stored statistics for %s: %s", statistic_id, err)
+            return
+
+        # Sum of everything recorded before the oldest row in the window
+        running_sum = 0.0
+        if anchor_rows := stored.get(statistic_id):
+            anchor = anchor_rows[-1]
+            running_sum = anchor.get("sum") or 0.0
+            if anchor["start"] >= oldest.timestamp():
+                running_sum -= anchor.get("state") or 0.0
+
+        statistics = []
+        for start, value in rows:
             running_sum += value
-            statistics.append(
-                StatisticData(start=period_start, state=value, sum=running_sum)
-            )
+            statistics.append(StatisticData(start=start, state=value, sum=running_sum))
 
-        if statistics:
-            _LOGGER.info(
-                "Inserting %d %s statistics (starting from %s)",
-                len(statistics),
-                statistic_id,
-                statistics[0]["start"],
-            )
-            async_add_external_statistics(self.hass, metadata, statistics)
+        _LOGGER.debug(
+            "Importing %d %s statistics (%s to %s)",
+            len(statistics),
+            statistic_id,
+            statistics[0]["start"],
+            statistics[-1]["start"],
+        )
+        async_add_external_statistics(self.hass, metadata, statistics)
