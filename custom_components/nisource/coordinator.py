@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import (
     StatisticData,
+    StatisticMetaData,
     async_add_external_statistics,
     get_last_statistics,
 )
@@ -70,184 +72,84 @@ class NiSourceCoordinator(DataUpdateCoordinator):
     async def _insert_statistics(self, data: dict) -> None:
         """Insert long-term statistics for consumption and cost.
 
-        This method backfills historical data into Home Assistant's statistics
-        database. The Energy Dashboard uses these statistics, not the sensor
-        values directly.
+        NiSource only provides one row per billing period, so each bill becomes
+        a single statistic on its read date. The Energy Dashboard uses these
+        statistics, not the sensor values directly.
         """
-        # Get last inserted statistics to avoid duplicates
-        try:
-            last_stats = await get_instance(self.hass).async_add_executor_job(
-                get_last_statistics,
-                self.hass,
-                1,
-                STATISTIC_CONSUMPTION,
-                True,
-                set(),
-            )
-            _LOGGER.debug("get_last_statistics returned: %s", last_stats)
-        except Exception as err:
-            _LOGGER.warning("Failed to get last statistics: %s", err)
-            last_stats = {}
-
-        last_consumption_time = None
-        if last_stats and STATISTIC_CONSUMPTION in last_stats:
-            stats_list = last_stats[STATISTIC_CONSUMPTION]
-            if stats_list and len(stats_list) > 0:
-                last_stat = stats_list[0]
-                _LOGGER.debug("Last stat entry: %s", last_stat)
-                if "start" in last_stat:
-                    last_consumption_time = datetime.fromtimestamp(
-                        last_stat["start"], tz=timezone.utc
-                    )
-                    _LOGGER.debug("Last consumption time: %s", last_consumption_time)
-
-        # Parse usage history from CSV
         usage_csv = data.get("usage", [])
-
         if not usage_csv:
             _LOGGER.debug("No usage history data available")
             return
 
-        # Build consumption statistics with cumulative sum
-        # CSV format: Date, Type of Read, Avg Temp, Number of Days, Units Used, Yearly Usage, Bill Amount, Cost per Day
-        # IMPORTANT: CSV is ordered newest-to-oldest, so reverse it for chronological order
-        consumption_statistics = []
-        consumption_sum = 0.0
+        await self._import_statistics(
+            usage_csv,
+            "Units Used",
+            float,
+            STATISTIC_CONSUMPTION,
+            CONSUMPTION_METADATA,
+        )
+        await self._import_statistics(
+            usage_csv,
+            "Bill Amount",
+            self.api.parse_currency,
+            STATISTIC_COST,
+            COST_METADATA,
+        )
 
-        for row in reversed(usage_csv):
-            date_str = row.get("Date")
-            units_used_str = row.get("Units Used")
+    async def _import_statistics(
+        self,
+        usage_csv: list[dict[str, str]],
+        column: str,
+        parse: Callable[[str], float],
+        statistic_id: str,
+        metadata: StatisticMetaData,
+    ) -> None:
+        """Import bill-period rows newer than the last stored statistic.
 
-            if not date_str or not units_used_str:
-                continue
-
-            try:
-                # Parse date from MM/DD/YYYY format
-                period_start = self.api.parse_date(date_str).replace(
-                    hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc
-                )
-
-                # Skip if we've already inserted this period
-                if last_consumption_time and period_start <= last_consumption_time:
-                    # Still need to add to sum for correct cumulative calculation
-                    ccf = float(units_used_str)
-                    consumption_sum += ccf
-                    continue
-
-                # Parse CCF (hundred cubic feet)
-                ccf = float(units_used_str)
-                consumption_sum += ccf
-
-                consumption_statistics.append(
-                    StatisticData(
-                        start=period_start,
-                        state=ccf,  # This period's usage in CCF
-                        sum=consumption_sum,  # Cumulative total
-                    )
-                )
-
-            except (ValueError, TypeError) as err:
-                _LOGGER.warning("Failed to parse usage data point %s: %s", row, err)
-                continue
-
-        # Insert consumption statistics
-        if consumption_statistics:
-            _LOGGER.info(
-                "Inserting %d consumption statistics (starting from %s)",
-                len(consumption_statistics),
-                consumption_statistics[0]["start"],
-            )
-            async_add_external_statistics(self.hass, CONSUMPTION_METADATA, consumption_statistics)
-
-        # Insert cost statistics from billing CSV
-        await self._insert_cost_statistics(data)
-
-    async def _insert_cost_statistics(self, data: dict) -> None:
-        """Insert cost statistics from billing history CSV.
-
-        Billing CSV format varies, but usage CSV has "Bill Amount" column
-        which we can use for cost tracking.
+        The running sum continues from the last stored sum rather than being
+        re-totalled from the CSV, which only covers a rolling window of bills.
         """
-        # Get last inserted cost statistics
         try:
             last_stats = await get_instance(self.hass).async_add_executor_job(
-                get_last_statistics,
-                self.hass,
-                1,
-                STATISTIC_COST,
-                True,
-                set(),
+                get_last_statistics, self.hass, 1, statistic_id, True, {"sum"}
             )
-            _LOGGER.debug("get_last_statistics (cost) returned: %s", last_stats)
         except Exception as err:
-            _LOGGER.warning("Failed to get last cost statistics: %s", err)
-            last_stats = {}
-
-        last_cost_time = None
-        if last_stats and STATISTIC_COST in last_stats:
-            stats_list = last_stats[STATISTIC_COST]
-            if stats_list and len(stats_list) > 0:
-                last_stat = stats_list[0]
-                if "start" in last_stat:
-                    last_cost_time = datetime.fromtimestamp(
-                        last_stat["start"], tz=timezone.utc
-                    )
-                    _LOGGER.debug("Last cost time: %s", last_cost_time)
-
-        # Parse usage CSV for bill amounts
-        # (Usage CSV includes "Bill Amount" column)
-        usage_csv = data.get("usage", [])
-
-        if not usage_csv:
-            _LOGGER.debug("No usage/billing data available")
+            _LOGGER.warning("Failed to get last statistics for %s: %s", statistic_id, err)
             return
 
-        # Build cost statistics with cumulative sum
-        # IMPORTANT: CSV is ordered newest-to-oldest, so reverse it for chronological order
-        cost_statistics = []
-        cost_sum = 0.0
+        last_time = None
+        running_sum = 0.0
+        if stats_list := last_stats.get(statistic_id):
+            last_time = datetime.fromtimestamp(stats_list[0]["start"], tz=timezone.utc)
+            running_sum = stats_list[0].get("sum") or 0.0
 
+        # CSV is ordered newest-to-oldest, so reverse it for chronological order
+        statistics = []
         for row in reversed(usage_csv):
             date_str = row.get("Date")
-            bill_amount_str = self.api.get_csv_value(row, "Bill Amount")
-
-            if not date_str or not bill_amount_str:
+            value_str = self.api.get_csv_value(row, column)
+            if not date_str or not value_str:
                 continue
 
             try:
-                # Parse date from MM/DD/YYYY format
-                period_start = self.api.parse_date(date_str).replace(
-                    hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc
-                )
-
-                # Skip if we've already inserted this period
-                if last_cost_time and period_start <= last_cost_time:
-                    # Still need to add to sum for correct cumulative calculation
-                    cost = self.api.parse_currency(bill_amount_str)
-                    cost_sum += cost
+                period_start = self.api.parse_date(date_str).replace(tzinfo=timezone.utc)
+                if last_time and period_start <= last_time:
                     continue
-
-                # Parse cost (remove $ and convert to float)
-                cost = self.api.parse_currency(bill_amount_str)
-                cost_sum += cost
-
-                cost_statistics.append(
-                    StatisticData(
-                        start=period_start,
-                        state=cost,  # This bill's amount
-                        sum=cost_sum,  # Cumulative total
-                    )
-                )
-
+                value = parse(value_str)
             except (ValueError, TypeError) as err:
-                _LOGGER.warning("Failed to parse cost data point %s: %s", row, err)
+                _LOGGER.warning("Failed to parse %s from row %s: %s", column, row, err)
                 continue
 
-        # Insert cost statistics
-        if cost_statistics:
-            _LOGGER.info(
-                "Inserting %d cost statistics (starting from %s)",
-                len(cost_statistics),
-                cost_statistics[0]["start"],
+            running_sum += value
+            statistics.append(
+                StatisticData(start=period_start, state=value, sum=running_sum)
             )
-            async_add_external_statistics(self.hass, COST_METADATA, cost_statistics)
+
+        if statistics:
+            _LOGGER.info(
+                "Inserting %d %s statistics (starting from %s)",
+                len(statistics),
+                statistic_id,
+                statistics[0]["start"],
+            )
+            async_add_external_statistics(self.hass, metadata, statistics)

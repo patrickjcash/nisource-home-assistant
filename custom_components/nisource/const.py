@@ -1,8 +1,7 @@
 """Constants for the NiSource integration."""
 
+from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.components.recorder.statistics import StatisticMetaData
-from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import UnitOfVolume
 
 DOMAIN = "nisource"
 
@@ -66,20 +65,22 @@ STAT_NAME_COST = "NiSource Gas Cost"
 
 # Statistics metadata for Energy Dashboard
 CONSUMPTION_METADATA = StatisticMetaData(
-    has_mean=False,
+    mean_type=StatisticMeanType.NONE,
     has_sum=True,
     name=STAT_NAME_CONSUMPTION,
     source=DOMAIN,
     statistic_id=STATISTIC_CONSUMPTION,
+    unit_class="volume",
     unit_of_measurement=UNIT_CCF,
 )
 
 COST_METADATA = StatisticMetaData(
-    has_mean=False,
+    mean_type=StatisticMeanType.NONE,
     has_sum=True,
     name=STAT_NAME_COST,
     source=DOMAIN,
     statistic_id=STATISTIC_COST,
+    unit_class=None,
     unit_of_measurement=UNIT_CURRENCY,
 )
 

@@ -34,7 +34,7 @@ Nearly 4 million customers across six states can use this integration!
 ## Installation
 
 ### Prerequisites
-- Home Assistant 2024.1 or newer
+- Home Assistant 2025.10 or newer
 - NiSource account (Columbia Gas or NIPSCO online portal)
 
 ### HACS (Recommended)
@@ -107,6 +107,12 @@ This integration uses **long-term statistics** (not sensors) for Energy Dashboar
 4. Historical billing data will be displayed alongside consumption
 
 **Note**: The integration provides both sensors (for current values) and statistics (for historical tracking). The Energy Dashboard uses statistics, not sensors.
+
+### Why usage appears on a single day
+
+NiSource only publishes usage and cost **once per billing period** (roughly monthly), not daily. Each bill is recorded as one data point on its meter read date, so the Energy Dashboard's daily and weekly views will show the whole bill's usage as a single spike on that date. Use the **month** or **year** view for meaningful comparisons.
+
+New readings appear only after NiSource posts your next bill, so it's normal for a fresh install to show nothing new for several weeks. The integration does not prorate usage across days, because that would invent daily values the utility never measured.
 
 ## Sensors
 

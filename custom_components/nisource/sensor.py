@@ -65,7 +65,7 @@ def _get_latest_gas_usage(data: dict[str, Any]) -> StateType:
     # Get the latest (most recent) usage record
     # CSV is ordered newest-to-oldest, so [0] is the most recent
     latest = usage_csv[0]
-    units_used = latest.get("Units Used")
+    units_used = _get_csv_value(latest, "Units Used")
 
     if units_used is None:
         return None

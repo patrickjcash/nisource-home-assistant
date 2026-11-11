@@ -156,14 +156,14 @@ The integration uses Home Assistant's statistics system for Energy Dashboard int
 - **Name**: "NiSource Gas Consumption"
 - **Unit**: CCF
 - **Source**: Parsed from `/UsageHistoryAllCsv/0`
-- **Method**: `async_add_external_statistics`
+- **Method**: `async_add_external_statistics` (one statistic per billing period, on the read date; running sum continues from the last stored sum)
 
 ### Cost Statistics
 - **Statistic ID**: `nisource:cost`
 - **Name**: "NiSource Gas Cost"
 - **Unit**: USD
 - **Source**: Parsed from CSV bill amounts
-- **Method**: `async_add_external_statistics`
+- **Method**: `async_add_external_statistics` (one statistic per billing period, on the read date; running sum continues from the last stored sum)
 
 ## Integration Structure
 
